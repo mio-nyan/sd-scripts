@@ -166,7 +166,7 @@ def main(args):
                 continue
 
         # バッチへ追加
-        image_info = train_util.ImageInfo(image_key, 1, "", False, image_path)
+        image_info = train_util.ImageInfo(image_key, 1, "", "", False, image_path)
         image_info.latents_npz = npz_file_name
         image_info.bucket_reso = reso
         image_info.resized_size = resized_size

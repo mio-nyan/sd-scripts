@@ -777,6 +777,7 @@ class SdxlStableDiffusionLongPromptWeightingPipeline:
     def __call__(
         self,
         prompt: Union[str, List[str]],
+        prompt_l: str = '',
         negative_prompt: Optional[Union[str, List[str]]] = None,
         image: Union[torch.FloatTensor, PIL.Image.Image] = None,
         mask_image: Union[torch.FloatTensor, PIL.Image.Image] = None,
@@ -902,9 +903,13 @@ class SdxlStableDiffusionLongPromptWeightingPipeline:
         text_pool = None
         uncond_embeddings_list = []
         uncond_pool = None
+        prompts = [prompt_l, prompt] #L prompt for first decoder, G prompt for the second one
         for i in range(len(self.tokenizers)):
+            prompt = prompts[i]
             self.tokenizer = self.tokenizers[i]
             self.text_encoder = self.text_encoders[i]
+
+            print(f"Caption for TextEncoder {i}: {prompt}")
 
             text_embeddings, tp1, uncond_embeddings, up1 = self._encode_prompt(
                 prompt,
@@ -1008,7 +1013,7 @@ class SdxlStableDiffusionLongPromptWeightingPipeline:
             noise_pred = self.unet(latent_model_input, t, text_embedding, vector_embedding)
             noise_pred = noise_pred.to(dtype)  # U-Net changes dtype in LoRA training
 
-            # perform guidance
+            # perform guidance (cfg)
             if do_classifier_free_guidance:
                 noise_pred_uncond, noise_pred_text = noise_pred.chunk(2)
                 noise_pred = noise_pred_uncond + guidance_scale * (noise_pred_text - noise_pred_uncond)

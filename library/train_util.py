@@ -124,10 +124,11 @@ TEXT_ENCODER_OUTPUTS_CACHE_SUFFIX = "_te_outputs.npz"
 
 
 class ImageInfo:
-    def __init__(self, image_key: str, num_repeats: int, caption: str, is_reg: bool, absolute_path: str) -> None:
+    def __init__(self, image_key: str, num_repeats: int, caption_l: str,  caption_g: str, is_reg: bool, absolute_path: str) -> None:
         self.image_key: str = image_key
         self.num_repeats: int = num_repeats
-        self.caption: str = caption
+        self.caption_l: str = caption_l
+        self.caption_g: str = caption_g
         self.is_reg: bool = is_reg
         self.absolute_path: str = absolute_path
         self.image_size: Tuple[int, int] = None
@@ -1062,7 +1063,8 @@ class BaseDataset(torch.utils.data.Dataset):
             return self.get_item_for_caching(bucket, bucket_batch_size, image_index)
 
         loss_weights = []
-        captions = []
+        captions_l = []
+        captions_g = []
         input_ids_list = []
         input_ids2_list = []
         latents_list = []
@@ -1159,12 +1161,14 @@ class BaseDataset(torch.utils.data.Dataset):
             flippeds.append(flipped)
 
             # captionとtext encoder outputを処理する
-            caption = image_info.caption  # default
+            caption_l = image_info.caption_l  # sdxl l captions
+            caption_g = image_info.caption_g  # sdxl g captions
             if image_info.text_encoder_outputs1 is not None:
                 text_encoder_outputs1_list.append(image_info.text_encoder_outputs1)
                 text_encoder_outputs2_list.append(image_info.text_encoder_outputs2)
                 text_encoder_pool2_list.append(image_info.text_encoder_pool2)
-                captions.append(caption)
+                captions_l.append(caption_l)
+                captions_g.append(caption_g)
             elif image_info.text_encoder_outputs_npz is not None:
                 text_encoder_outputs1, text_encoder_outputs2, text_encoder_pool2 = load_text_encoder_outputs_from_disk(
                     image_info.text_encoder_outputs_npz
@@ -1172,32 +1176,43 @@ class BaseDataset(torch.utils.data.Dataset):
                 text_encoder_outputs1_list.append(text_encoder_outputs1)
                 text_encoder_outputs2_list.append(text_encoder_outputs2)
                 text_encoder_pool2_list.append(text_encoder_pool2)
-                captions.append(caption)
+                captions_l.append(caption_l)
+                captions_g.append(caption_g)
             else:
-                caption = self.process_caption(subset, image_info.caption)
+                caption_l = self.process_caption(subset, image_info.caption_l)
+                caption_g = self.process_caption(subset, image_info.caption_g)
                 if self.XTI_layers:
-                    caption_layer = []
-                    for layer in self.XTI_layers:
-                        token_strings_from = " ".join(self.token_strings)
-                        token_strings_to = " ".join([f"{x}_{layer}" for x in self.token_strings])
-                        caption_ = caption.replace(token_strings_from, token_strings_to)
-                        caption_layer.append(caption_)
-                    captions.append(caption_layer)
+                    print("Mio: XTI_layers not supported")
+                    # Mio: for sure broken now
+                    #caption_layer = []
+                    #for layer in self.XTI_layers:
+                    #    token_strings_from = " ".join(self.token_strings)
+                    #    token_strings_to = " ".join([f"{x}_{layer}" for x in self.token_strings])
+                    #    caption_ = caption.replace(token_strings_from, token_strings_to)
+                    #    caption_layer.append(caption_)
+                    #captions_l.append(caption_layer) # Mio: nono
                 else:
-                    captions.append(caption)
+                    captions_l.append(caption_l)
+                    captions_g.append(caption_g)
 
                 if not self.token_padding_disabled:  # this option might be omitted in future
                     if self.XTI_layers:
-                        token_caption = self.get_input_ids(caption_layer, self.tokenizers[0])
+                        print("Mio: XTI_layers not supported")
+                        #token_caption = self.get_input_ids(caption_layer, self.tokenizers[0])
                     else:
-                        token_caption = self.get_input_ids(caption, self.tokenizers[0])
+                        # get input ids for captions (L)
+                        #print(f"get input ids for captions (L): {caption_l}")
+                        token_caption = self.get_input_ids(caption_l, self.tokenizers[0])
                     input_ids_list.append(token_caption)
 
                     if len(self.tokenizers) > 1:
                         if self.XTI_layers:
-                            token_caption2 = self.get_input_ids(caption_layer, self.tokenizers[1])
+                            print("Mio: XTI_layers not supported")
+                            #token_caption2 = self.get_input_ids(caption_layer, self.tokenizers[1])
                         else:
-                            token_caption2 = self.get_input_ids(caption, self.tokenizers[1])
+                            # get input ids for captions (G)
+                            #print(f"get input ids for captions (G): {caption_g}")
+                            token_caption2 = self.get_input_ids(caption_g, self.tokenizers[1])
                         input_ids2_list.append(token_caption2)
 
         example = {}
@@ -1206,10 +1221,10 @@ class BaseDataset(torch.utils.data.Dataset):
         if len(text_encoder_outputs1_list) == 0:
             if self.token_padding_disabled:
                 # padding=True means pad in the batch
-                example["input_ids"] = self.tokenizer[0](captions, padding=True, truncation=True, return_tensors="pt").input_ids
+                example["input_ids"] = self.tokenizer[0](captions_l, padding=True, truncation=True, return_tensors="pt").input_ids
                 if len(self.tokenizers) > 1:
                     example["input_ids2"] = self.tokenizer[1](
-                        captions, padding=True, truncation=True, return_tensors="pt"
+                        captions_g, padding=True, truncation=True, return_tensors="pt"
                     ).input_ids
                 else:
                     example["input_ids2"] = None
@@ -1237,7 +1252,8 @@ class BaseDataset(torch.utils.data.Dataset):
         example["images"] = images
 
         example["latents"] = torch.stack(latents_list) if latents_list[0] is not None else None
-        example["captions"] = captions
+        example["captions_l"] = captions_l
+        example["captions_g"] = captions_g
 
         example["original_sizes_hw"] = torch.stack([torch.LongTensor(x) for x in original_sizes_hw])
         example["crop_top_lefts"] = torch.stack([torch.LongTensor(x) for x in crop_top_lefts])
@@ -1249,7 +1265,8 @@ class BaseDataset(torch.utils.data.Dataset):
         return example
 
     def get_item_for_caching(self, bucket, bucket_batch_size, image_index):
-        captions = []
+        captions_l = []
+        captions_g = []
         images = []
         input_ids1_list = []
         input_ids2_list = []
@@ -1272,7 +1289,8 @@ class BaseDataset(torch.utils.data.Dataset):
                 assert random_crop == subset.random_crop, "random_crop must be same in a batch"
                 assert bucket_reso == image_info.bucket_reso, "bucket_reso must be same in a batch"
 
-            caption = image_info.caption  # TODO cache some patterns of dropping, shuffling, etc.
+            caption_l = image_info.caption_l  # TODO cache some patterns of dropping, shuffling, etc.
+            caption_g = image_info.caption_g
 
             if self.caching_mode == "latents":
                 image = load_image(image_info.absolute_path)
@@ -1280,13 +1298,14 @@ class BaseDataset(torch.utils.data.Dataset):
                 image = None
 
             if self.caching_mode == "text":
-                input_ids1 = self.get_input_ids(caption, self.tokenizers[0])
-                input_ids2 = self.get_input_ids(caption, self.tokenizers[1])
+                input_ids1 = self.get_input_ids(caption_l, self.tokenizers[0])
+                input_ids2 = self.get_input_ids(caption_g, self.tokenizers[1])
             else:
                 input_ids1 = None
                 input_ids2 = None
 
-            captions.append(caption)
+            captions_l.append(caption_l)
+            captions_g.append(caption_g)
             images.append(image)
             input_ids1_list.append(input_ids1)
             input_ids2_list.append(input_ids2)
@@ -1299,7 +1318,8 @@ class BaseDataset(torch.utils.data.Dataset):
             images = None
         example["images"] = images
 
-        example["captions"] = captions
+        example["captions_l"] = captions_l
+        example["captions_g"] = captions_g
         example["input_ids1_list"] = input_ids1_list
         example["input_ids2_list"] = input_ids2_list
         example["absolute_paths"] = absolute_paths
@@ -1519,7 +1539,7 @@ class FineTuningDataset(BaseDataset):
                 )
                 continue
 
-            # メタデータを読み込む
+            # Load metadata / メタデータを読み込む
             if os.path.exists(subset.metadata_file):
                 print(f"loading existing metadata: {subset.metadata_file}")
                 with open(subset.metadata_file, "rt", encoding="utf-8") as f:
@@ -1533,14 +1553,14 @@ class FineTuningDataset(BaseDataset):
 
             tags_list = []
             for image_key, img_md in metadata.items():
-                # path情報を作る
+                # Create path information / path情報を作る
                 abs_path = None
 
-                # まず画像を優先して探す
+                # Search for images first / まず画像を優先して探す
                 if os.path.exists(image_key):
                     abs_path = image_key
                 else:
-                    # わりといい加減だがいい方法が思いつかん
+                    # It's pretty sloppy, but I can't think of a good way to do it. / わりといい加減だがいい方法が思いつかん
                     paths = glob_images(subset.image_dir, image_key)
                     if len(paths) > 0:
                         abs_path = paths[0]
@@ -1556,18 +1576,21 @@ class FineTuningDataset(BaseDataset):
 
                 assert abs_path is not None, f"no image / 画像がありません: {image_key}"
 
-                caption = img_md.get("caption")
-                tags = img_md.get("tags")
-                if caption is None:
-                    caption = tags
-                elif tags is not None and len(tags) > 0:
-                    caption = caption + ", " + tags
-                    tags_list.append(tags)
+                caption_l = img_md.get("captionL")
+                print(f"Captions used for Image (L) {image_key}:  {caption_l}")
+                caption_g = img_md.get("captionG")
+                print(f"Captions used for Image (G) {image_key}:  {caption_g}")
 
-                if caption is None:
-                    caption = ""
+                #if caption is None:
+                #    caption_l = tags
+                #elif tags is not None and len(tags) > 0:
+                #    caption = caption + ", " + tags
+                #    tags_list.append(tags)
 
-                image_info = ImageInfo(image_key, subset.num_repeats, caption, False, abs_path)
+                #if caption is None:
+                #    caption = ""
+
+                image_info = ImageInfo(image_key, subset.num_repeats, caption_l, caption_g, False, abs_path)
                 image_info.image_size = img_md.get("train_resolution")
 
                 if not subset.color_aug and not subset.random_crop:
@@ -2987,6 +3010,7 @@ def add_training_arguments(parser: argparse.ArgumentParser, support_dreambooth: 
         choices=[
             "ddim",
             "pndm",
+            "ddpm",
             "lms",
             "euler",
             "euler_a",
@@ -4455,6 +4479,7 @@ def sample_images_common(
     prompt_replacement=None,
     controlnet=None,
 ):
+
     """
     StableDiffusionLongPromptWeightingPipelineの改造版を使うようにしたので、clip skipおよびプロンプトの重みづけに対応した
     """
@@ -4583,6 +4608,7 @@ def sample_images_common(
                 sample_steps = 30
                 width = height = 512
                 scale = 7.5
+                prompt_l = ''
                 seed = None
                 controlnet_image = None
                 for parg in prompt_args:
@@ -4600,6 +4626,11 @@ def sample_images_common(
                         m = re.match(r"d (\d+)", parg, re.IGNORECASE)
                         if m:
                             seed = int(m.group(1))
+                            continue
+                        
+                        m = re.match(r"e (.+)", parg, re.IGNORECASE)
+                        if m:
+                            prompt_l = m.group(1)
                             continue
 
                         m = re.match(r"s (\d+)", parg, re.IGNORECASE)
@@ -4641,15 +4672,18 @@ def sample_images_common(
 
             height = max(64, height - height % 8)  # round to divisible by 8
             width = max(64, width - width % 8)  # round to divisible by 8
-            print(f"prompt: {prompt}")
+            print(f"prompt (G): {prompt}")
+            print(f"prompt (L): {prompt_l}")
             print(f"negative_prompt: {negative_prompt}")
             print(f"height: {height}")
             print(f"width: {width}")
             print(f"sample_steps: {sample_steps}")
             print(f"scale: {scale}")
+            print(f"seed: {seed}")
             with accelerator.autocast():
                 latents = pipeline(
                     prompt=prompt,
+                    prompt_l=prompt_l,
                     height=height,
                     width=width,
                     num_inference_steps=sample_steps,

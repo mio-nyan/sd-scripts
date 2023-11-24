@@ -93,6 +93,7 @@ def append_block_lr_to_logs(block_lrs, logs, lr_scheduler, optimizer_type):
 
 
 def train(args):
+    print("Prepare Training...")
     train_util.verify_training_args(args)
     train_util.prepare_dataset_args(args, True)
     sdxl_train_util.verify_sdxl_training_args(args)
@@ -144,7 +145,7 @@ def train(args):
                     ]
                 }
             else:
-                print("Training with captions.")
+                print("Training with captions. Modified SDXL version with separated captions for both textencoders.")
                 user_config = {
                     "datasets": [
                         {
@@ -462,6 +463,21 @@ def train(args):
         accelerator.init_trackers("finetuning" if args.log_tracker_name is None else args.log_tracker_name, init_kwargs=init_kwargs)
 
     loss_recorder = train_util.LossRecorder()
+
+    # create a sample image before training in order to understand the training better
+    sdxl_train_util.sample_images(
+        accelerator,
+        args,
+        None,
+        global_step,
+        accelerator.device,
+        vae,
+        [tokenizer1, tokenizer2],
+        [text_encoder1, text_encoder2],
+        unet,
+    )
+
+
     for epoch in range(num_train_epochs):
         accelerator.print(f"\nepoch {epoch+1}/{num_train_epochs}")
         current_epoch.value = epoch + 1
