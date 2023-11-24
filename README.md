@@ -1,8 +1,10 @@
+# README
+
 Test Branch for testing separated captions for sdxl training.
 FINETUNING ONLY! And only tested for the following workflow.
 This branch will break other stuff!
 
-What can you do with this
+## What can you do with this
 1) create a metadata file with separated captions for text_encoder1 and text_encoder2
 2) finetune a model with separated captions
 3) before the training process an initial sample image will be created in order better understand the trainings process
@@ -16,7 +18,7 @@ So in the following notes everything like
 captions_g / captionsG / (G).. refers to the text_encoder2
 captions_l / captionsL / (L).. refers to the text_encoder1
 
-#1 Prepare your images and captions files
+## Prepare your images and captions files
 tested it with a single folder (like images)
 01.jpg
 01.caption -> file for (G) text_encoder2
@@ -34,12 +36,14 @@ prepare_buckets_latents.py
 you can use it like this:
 
 python .\finetune\sdxl_merge_captions_g_to_metadata.py X:\Path to training folder\images X:\Path to training folder\meta_cap.json
+
 python .\finetune\sdxl_merge_captions_l_to_metadata.py X:\Path to training folder\images X:\Path to training folder\meta_cap.json
+
 python .\finetune\prepare_buckets_latents.py X:\Path to training folder\images X:\Path to training folder\meta_cap.json X:\Path to training folder\meta_lat.json X:\Path to training folder\sd_xl_base_1.0.safetensors --batch_size 1 --max_resolution=1024,1024 --min_bucket_reso=1024 --max_bucket_reso=2048 --mixed_precision=bf16
 
 you will get a metafile with following info:
 
-...
+```
 {
   "filename": {
     "captionG": "caption for (G) text_encoder2",
@@ -50,10 +54,12 @@ you will get a metafile with following info:
     ]
   },
 }
-...
+```
 
+## Training
 after this you can call your training file (sample config I used for creating the samples)
 
+```
 accelerate launch 
 --num_cpu_threads_per_process=4 
 "./sdxl_train.py" 
@@ -84,10 +90,10 @@ accelerate launch
 --sample_every_n_steps="10"
 --sample_sampler="euler_a"
 --no_half_vae
+```
 
+## Captioning
 
-Some thougts from captioning / debugging / testing /..
-
-1) captoning (that i tested with this)
+For now I tested:
    (L) for style like "photographic", "anime"
    (G) for prompt like "woman, portrait, in nature"
