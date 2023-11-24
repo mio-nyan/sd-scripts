@@ -11,7 +11,9 @@ This branch will break other stuff!
 4) separated captions for sample images
 
 Info about the text encoders:
+
 text_encoder1: CLIPTextModel - 'openai/clip-vit-large-patch14' / L / in Comfy CLIP_L
+
 text_encoder2: CLIPTextModelWithProjection - 'laion/CLIP-ViT-bigG-14-laion2B-39B-b160k' / G / in Comfy CLIP_G -> the "sdxl" decoder
 
 So in the following notes everything like 
