@@ -1,7 +1,9 @@
 # README
 
 Test Branch for testing separated captions for sdxl training.
+
 FINETUNING ONLY! And only tested for the following workflow.
+
 This branch will break other stuff!
 
 ## What can you do with this
@@ -10,30 +12,40 @@ This branch will break other stuff!
 3) before the training process an initial sample image will be created in order better understand the trainings process
 4) separated captions for sample images
 
+
 Info about the text encoders:
 
 text_encoder1: CLIPTextModel - 'openai/clip-vit-large-patch14' / L / in Comfy CLIP_L
 
 text_encoder2: CLIPTextModelWithProjection - 'laion/CLIP-ViT-bigG-14-laion2B-39B-b160k' / G / in Comfy CLIP_G -> the "sdxl" decoder
 
+
 So in the following notes everything like 
+
 captions_g / captionsG / (G).. refers to the text_encoder2
+
 captions_l / captionsL / (L).. refers to the text_encoder1
 
 ## Prepare your images and captions files
 tested it with a single folder (like images)
+
 01.jpg
+
 01.caption -> file for (G) text_encoder2
+
 01.txt -> file for (L) text_encoder1
-.
-.
+
 
 (see notes at the bottom for some thoughts on how to caption the images)
 
 use the following scripts to create the required metadatafile and prepare the bucket latents
+
 sdxl_merge_captions_g_to_metadata.py
+
 sdxl_merge_captions_l_to_metadata.py
+
 prepare_buckets_latents.py
+
 
 you can use it like this:
 
@@ -97,5 +109,7 @@ accelerate launch
 ## Captioning
 
 For now I tested:
+
    (L) for style like "photographic", "anime"
+   
    (G) for prompt like "woman, portrait, in nature"
